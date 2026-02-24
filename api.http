@@ -1,0 +1,736 @@
+# Clinic API — Request Examples
+# Base URL: http://localhost:8787/api/v1
+# Auth URL:  http://localhost:8787/api/auth
+#
+# Use any HTTP client: curl, Bruno, Insomnia, Postman, HTTPie
+# Variables are written as {{VARIABLE}} — replace with real values
+
+
+###############################################################################
+# AUTH (better-auth)
+###############################################################################
+
+### Sign up
+POST http://localhost:8787/api/auth/sign-up/email
+Content-Type: application/json
+
+{
+  "name": "Sarah Smith",
+  "email": "sarah@clinic.com",
+  "password": "supersecret123"
+}
+
+### Sign in
+POST http://localhost:8787/api/auth/sign-in/email
+Content-Type: application/json
+
+{
+  "email": "sarah@clinic.com",
+  "password": "supersecret123"
+}
+# Response sets a session cookie automatically.
+# For API clients, pass the cookie on subsequent requests:
+#   Cookie: better-auth.session_token=<token>
+
+### Get current session
+GET http://localhost:8787/api/auth/session
+Cookie: better-auth.session_token=Z0jCvaY3RgqAegPlBOK6nsM8UJ6or4oN.p4QkxNawyLi5ysAtw2aqvUy7Yt8e9LxFAgYuvmPOMlU%3D
+
+### Sign out
+POST http://localhost:8787/api/auth/sign-out
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+
+###############################################################################
+# HEALTH
+###############################################################################
+
+### Health check (public)
+GET http://localhost:8787/api/v1/health
+
+
+###############################################################################
+# DOCTORS
+###############################################################################
+
+### List doctors (public, paginated)
+GET http://localhost:8787/api/v1/doctors?page=1&limit=10
+
+### List doctors filtered by specialist
+GET http://localhost:8787/api/v1/doctors?specialist=Cardiology&page=1&limit=20
+
+### Get single doctor (with clinics, availability rules, appointment types)
+GET http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}
+
+### Create doctor  [admin]
+POST http://localhost:8787/api/v1/doctors
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "name": "Dr. Emily Chen",
+  "specialist": "Neurology",
+  "description": "Board-certified neurologist specialising in epilepsy and movement disorders.",
+  "yearsOfExp": 12,
+  "image": "https://cdn.clinic.com/avatars/emily-chen.jpg"
+}
+
+### Create doctor — minimal (image & yearsOfExp optional)
+POST http://localhost:8787/api/v1/doctors
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "name": "Dr. Ahmed Hassan",
+  "specialist": "General Practice",
+  "description": "Family medicine physician with focus on preventive care."
+}
+
+### Update doctor (partial)  [admin]
+PATCH http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "yearsOfExp": 13,
+  "description": "Updated bio after completing fellowship."
+}
+
+### Delete doctor  [admin]
+DELETE http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+
+###############################################################################
+# DOCTOR ↔ CLINIC ASSIGNMENT
+###############################################################################
+
+### Assign doctor to clinic  [admin]
+POST http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/clinics
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "clinicId": "{{CLINIC_ID}}"
+}
+
+### Remove doctor from clinic  [admin]
+DELETE http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/clinics/{{CLINIC_ID}}
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+
+###############################################################################
+# AVAILABILITY RULES
+###############################################################################
+
+### List availability rules for a doctor  [auth]
+GET http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/availability
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+### List — filter by clinic and active only
+GET http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/availability?clinicId={{CLINIC_ID}}&active=true
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+### Get single availability rule  [auth]
+GET http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/availability/{{RULE_ID}}
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+### Create weekly rule — Monday 09:00–17:00 with lunch break  [admin | own doctor]
+POST http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/availability
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "clinicId": "{{CLINIC_ID}}",
+  "recurrentType": "weekly",
+  "dayOfWeek": 1,
+  "startTime": "09:00",
+  "endTime": "17:00",
+  "breaks": [
+    { "start": 720, "end": 780 }
+  ],
+  "isActive": true
+}
+
+### Create weekly rule — Friday, no breaks
+POST http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/availability
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "clinicId": "{{CLINIC_ID}}",
+  "recurrentType": "weekly",
+  "dayOfWeek": 5,
+  "startTime": "08:00",
+  "endTime": "13:00",
+  "breaks": []
+}
+
+### Create daily rule (same hours every day)
+POST http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/availability
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "clinicId": "{{CLINIC_ID}}",
+  "recurrentType": "daily",
+  "startTime": "10:00",
+  "endTime": "14:00",
+  "breaks": []
+}
+
+### Create monthly rule — every 15th of the month
+POST http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/availability
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "clinicId": "{{CLINIC_ID}}",
+  "recurrentType": "monthly",
+  "dayOfMonth": 15,
+  "startTime": "09:00",
+  "endTime": "12:00",
+  "breaks": []
+}
+
+### Update rule — change end time and add a second break  [admin | own doctor]
+PATCH http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/availability/{{RULE_ID}}
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "endTime": "18:00",
+  "breaks": [
+    { "start": 720, "end": 780 },
+    { "start": 900, "end": 915 }
+  ]
+}
+
+### Soft-delete (deactivate) rule  [admin | own doctor]
+DELETE http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/availability/{{RULE_ID}}
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+
+###############################################################################
+# SLOTS (availability calendar)
+###############################################################################
+
+### Get time slots for a specific date  (public)
+GET http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/slots?clinicId={{CLINIC_ID}}&date=2025-03-10
+
+### Get slots with custom duration (30-minute slots)
+GET http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/slots?clinicId={{CLINIC_ID}}&date=2025-03-10&slotDuration=30
+
+# Response:
+# {
+#   "success": true,
+#   "data": {
+#     "date": "2025-03-10",
+#     "slots": [
+#       { "start": "09:00", "end": "09:15", "available": true,  "serial": 1 },
+#       { "start": "09:15", "end": "09:30", "available": false, "serial": 2 },
+#       { "start": "09:30", "end": "09:45", "available": true,  "serial": 3 }
+#     ]
+#   }
+# }
+
+### Find next available date from today  (public)
+GET http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/slots/next?clinicId={{CLINIC_ID}}
+
+### Find next available date from a specific start, looking up to 60 days ahead
+GET http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/slots/next?clinicId={{CLINIC_ID}}&from=2025-03-10&maxDays=60
+
+
+###############################################################################
+# APPOINTMENT TYPES
+###############################################################################
+
+### List appointment types for a doctor  (public)
+GET http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/appointment-types
+
+### Create appointment type  [admin | own doctor]
+POST http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/appointment-types
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "name": "Initial Consultation",
+  "status": "new",
+  "durationMinutes": 30
+}
+
+### Create follow-up type
+POST http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/appointment-types
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "name": "Follow-up Visit",
+  "status": "follow_up",
+  "durationMinutes": 15
+}
+
+### Create emergency type
+POST http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/appointment-types
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "name": "Emergency",
+  "status": "emergency",
+  "durationMinutes": 60
+}
+
+### Update appointment type  [admin | own doctor]
+PATCH http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/appointment-types/{{TYPE_ID}}
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "durationMinutes": 20,
+  "name": "Brief Follow-up"
+}
+
+### Delete appointment type  [admin | own doctor]
+DELETE http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/appointment-types/{{TYPE_ID}}
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+
+###############################################################################
+# BOOKINGS — via doctor (nested)
+###############################################################################
+
+### Get doctor's queue for today  [auth + self/admin]
+GET http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/bookings
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+### Get doctor's queue for a specific date
+GET http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/bookings?date=2025-03-10
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+### Get doctor's queue filtered by status
+GET http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/bookings?date=2025-03-10&status=confirmed
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+### Get booking stats — today only  [admin | doctor | staff]
+GET http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/bookings/stats
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+### Get booking stats — date range
+GET http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/bookings/stats?from=2025-03-01&to=2025-03-31
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+### Create booking (walk-in, no scheduled time)  [auth]
+POST http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/bookings
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "clinicId": "{{CLINIC_ID}}",
+  "patientId": "{{PATIENT_ID}}",
+  "bookVia": "walk_in",
+  "serialDate": "2025-03-10"
+}
+
+### Create booking (web, with scheduled time and appointment type)  [auth]
+POST http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/bookings
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "clinicId": "{{CLINIC_ID}}",
+  "patientId": "{{PATIENT_ID}}",
+  "appointmentTypeId": "{{TYPE_ID}}",
+  "bookVia": "web",
+  "serialDate": "2025-03-10",
+  "scheduledAt": "2025-03-10T09:00:00Z"
+}
+
+### Create booking via app
+POST http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/bookings
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "clinicId": "{{CLINIC_ID}}",
+  "patientId": "{{PATIENT_ID}}",
+  "bookVia": "app",
+  "serialDate": "2025-03-10",
+  "scheduledAt": "2025-03-10T14:30:00Z"
+}
+
+
+###############################################################################
+# BOOKINGS — flat resource
+###############################################################################
+
+### List all bookings  [admin | doctor | staff]
+GET http://localhost:8787/api/v1/bookings
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+### List with all filters
+GET http://localhost:8787/api/v1/bookings?doctorId={{DOCTOR_ID}}&clinicId={{CLINIC_ID}}&date=2025-03-10&status=pending&page=1&limit=20
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+### List by patient
+GET http://localhost:8787/api/v1/bookings?patientId={{PATIENT_ID}}&page=1&limit=50
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+### Get single booking  [auth]
+GET http://localhost:8787/api/v1/bookings/{{BOOKING_ID}}
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+### Create booking (flat route — doctorId in body)  [auth]
+POST http://localhost:8787/api/v1/bookings
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "doctorId": "{{DOCTOR_ID}}",
+  "clinicId": "{{CLINIC_ID}}",
+  "patientId": "{{PATIENT_ID}}",
+  "bookVia": "web",
+  "serialDate": "2025-03-10",
+  "scheduledAt": "2025-03-10T10:00:00Z"
+}
+
+### Confirm a booking  [admin | doctor | staff]
+PATCH http://localhost:8787/api/v1/bookings/{{BOOKING_ID}}
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "bookingStatus": "confirmed"
+}
+
+### Complete a booking  [admin | doctor | staff]
+PATCH http://localhost:8787/api/v1/bookings/{{BOOKING_ID}}
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "bookingStatus": "completed"
+}
+
+### Mark as no-show  [admin | doctor | staff]
+PATCH http://localhost:8787/api/v1/bookings/{{BOOKING_ID}}
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "bookingStatus": "no_show"
+}
+
+### Cancel a booking (cancelNote required)  [admin | doctor | staff]
+PATCH http://localhost:8787/api/v1/bookings/{{BOOKING_ID}}
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "bookingStatus": "cancelled",
+  "cancelNote": "Patient called to reschedule — unable to attend."
+}
+
+### Reschedule time without changing status  [admin | doctor | staff]
+PATCH http://localhost:8787/api/v1/bookings/{{BOOKING_ID}}
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "scheduledAt": "2025-03-10T11:30:00Z"
+}
+
+### Hard delete booking  [admin]
+DELETE http://localhost:8787/api/v1/bookings/{{BOOKING_ID}}
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+
+###############################################################################
+# CLINICS
+###############################################################################
+
+### List clinics (public, paginated)
+GET http://localhost:8787/api/v1/clinics?page=1&limit=10
+
+### Search clinics by name or address
+GET http://localhost:8787/api/v1/clinics?search=downtown&page=1&limit=10
+
+### Get single clinic (with assigned doctors)
+GET http://localhost:8787/api/v1/clinics/{{CLINIC_ID}}
+
+### Create clinic  [admin]
+POST http://localhost:8787/api/v1/clinics
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "name": "Eastside Medical Center",
+  "address": "789 East Broadway, New York, NY 10002",
+  "phone": "+1-212-555-0300",
+  "latitude": 40.7135,
+  "longitude": -73.9857
+}
+
+### Create clinic — minimal
+POST http://localhost:8787/api/v1/clinics
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "name": "Pop-up Clinic"
+}
+
+### Update clinic  [admin]
+PATCH http://localhost:8787/api/v1/clinics/{{CLINIC_ID}}
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "phone": "+1-212-555-0399",
+  "address": "789 East Broadway, Suite 2, New York, NY 10002"
+}
+
+### Delete clinic  [admin]
+DELETE http://localhost:8787/api/v1/clinics/{{CLINIC_ID}}
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+
+###############################################################################
+# PATIENTS
+###############################################################################
+
+### List patients  [admin | doctor | staff]
+GET http://localhost:8787/api/v1/patients?page=1&limit=20
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+### Search patients by name, email, or phone
+GET http://localhost:8787/api/v1/patients?search=alice&page=1&limit=20
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+### Get single patient  [admin | doctor | staff]
+GET http://localhost:8787/api/v1/patients/{{PATIENT_ID}}
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+### Get patient's booking history  [admin | doctor | staff]
+GET http://localhost:8787/api/v1/patients/{{PATIENT_ID}}/bookings
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+### Create patient  [auth]
+POST http://localhost:8787/api/v1/patients
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "name": "Alice Johnson",
+  "dob": "1985-03-15",
+  "phone": "+1-555-0101",
+  "email": "alice@example.com"
+}
+
+### Create patient — walk-in (minimal)
+POST http://localhost:8787/api/v1/patients
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "name": "John Doe",
+  "phone": "+1-555-0199"
+}
+
+### Update patient  [admin | staff]
+PATCH http://localhost:8787/api/v1/patients/{{PATIENT_ID}}
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "email": "alice.updated@example.com",
+  "phone": "+1-555-0102"
+}
+
+### Delete patient  [admin]
+DELETE http://localhost:8787/api/v1/patients/{{PATIENT_ID}}
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+
+###############################################################################
+# ADMIN
+###############################################################################
+
+### List all users (paginated)  [admin]
+GET http://localhost:8787/api/v1/admin/users?page=1&limit=20
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+### Get single user  [admin]
+GET http://localhost:8787/api/v1/admin/users/{{USER_ID}}
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+### Promote a user to admin  [admin]
+PATCH http://localhost:8787/api/v1/admin/users/{{USER_ID}}/role
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "role": "admin"
+}
+
+### Assign user as a doctor (link to doctor profile)  [admin]
+PATCH http://localhost:8787/api/v1/admin/users/{{USER_ID}}/role
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "role": "doctor",
+  "doctorId": "{{DOCTOR_ID}}"
+}
+
+### Assign user as staff  [admin]
+PATCH http://localhost:8787/api/v1/admin/users/{{USER_ID}}/role
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "role": "staff"
+}
+
+### Demote doctor back to staff (unlink doctor profile)  [admin]
+PATCH http://localhost:8787/api/v1/admin/users/{{USER_ID}}/role
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{
+  "role": "staff",
+  "doctorId": null
+}
+
+### Delete user  [admin]
+DELETE http://localhost:8787/api/v1/admin/users/{{USER_ID}}
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+### System-wide stats  [admin]
+GET http://localhost:8787/api/v1/admin/stats
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+# Response:
+# {
+#   "success": true,
+#   "data": {
+#     "total_doctors": 5,
+#     "total_clinics": 3,
+#     "total_patients": 142,
+#     "total_bookings": 891,
+#     "pending_bookings": 23,
+#     "bookings_today": 18,
+#     "total_users": 9
+#   }
+# }
+
+
+###############################################################################
+# ERROR RESPONSE SHAPES
+###############################################################################
+
+# 400 Bad Request
+# { "success": false, "error": "cancelNote is required when cancelling a booking", "code": "CANCEL_NOTE_REQUIRED" }
+
+# 401 Unauthorized
+# { "success": false, "error": "Unauthorized" }
+
+# 403 Forbidden
+# { "success": false, "error": "Forbidden: you can only manage your own resources", "code": "SELF_ONLY" }
+
+# 404 Not Found
+# { "success": false, "error": "Doctor not found" }
+
+# 409 Conflict
+# { "success": false, "error": "Cannot transition booking from \"confirmed\" to \"pending\"", "code": "INVALID_TRANSITION" }
+# { "success": false, "error": "Doctor is not available at this clinic on the requested date", "code": "NO_AVAILABILITY" }
+# { "success": false, "error": "Scheduled time falls within a break period", "code": "DURING_BREAK" }
+
+# 422 Validation Failed
+# { "success": false, "error": "Validation failed", "issues": { "email": ["Invalid email"] } }
+
+# 429 Too Many Requests
+# { "success": false, "error": "Too many requests, please slow down." }
+
+
+###############################################################################
+# STATUS MACHINE — valid booking transitions
+###############################################################################
+#
+#  pending ──→ confirmed ──→ completed
+#     │              │
+#     └──→ cancelled └──→ cancelled
+#                    │
+#                    └──→ no_show
+#
+# Any transition not in the chart above returns 409 INVALID_TRANSITION.
+
+
+###############################################################################
+# TYPICAL WORKFLOW EXAMPLE
+###############################################################################
+
+# 1. Admin signs in
+POST http://localhost:8787/api/auth/sign-in/email
+Content-Type: application/json
+
+{ "email": "admin@clinic.com", "password": "secret" }
+
+# 2. Admin creates a clinic
+POST http://localhost:8787/api/v1/clinics
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{ "name": "Main Street Clinic", "address": "1 Main St", "phone": "+1-555-0001" }
+
+# 3. Admin creates a doctor
+POST http://localhost:8787/api/v1/doctors
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{ "name": "Dr. Kim", "specialist": "Dermatology", "description": "Skin specialist." }
+
+# 4. Admin assigns doctor to clinic
+POST http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/clinics
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{ "clinicId": "{{CLINIC_ID}}" }
+
+# 5. Admin adds weekly availability — Mon–Fri
+POST http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/availability
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{ "clinicId": "{{CLINIC_ID}}", "recurrentType": "weekly", "dayOfWeek": 1, "startTime": "09:00", "endTime": "17:00", "breaks": [{ "start": 720, "end": 780 }] }
+
+# 6. Staff creates a patient
+POST http://localhost:8787/api/v1/patients
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{ "name": "Bob Lee", "phone": "+1-555-9999", "dob": "1990-06-01" }
+
+# 7. Check available slots for that doctor on a Monday
+GET http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/slots?clinicId={{CLINIC_ID}}&date=2025-03-10
+
+# 8. Book the first available slot
+POST http://localhost:8787/api/v1/doctors/{{DOCTOR_ID}}/bookings
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{ "clinicId": "{{CLINIC_ID}}", "patientId": "{{PATIENT_ID}}", "bookVia": "walk_in", "serialDate": "2025-03-10", "scheduledAt": "2025-03-10T09:00:00Z" }
+
+# 9. Doctor confirms
+PATCH http://localhost:8787/api/v1/bookings/{{BOOKING_ID}}
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{ "bookingStatus": "confirmed" }
+
+# 10. After the appointment, doctor marks complete
+PATCH http://localhost:8787/api/v1/bookings/{{BOOKING_ID}}
+Content-Type: application/json
+Cookie: better-auth.session_token={{SESSION_TOKEN}}
+
+{ "bookingStatus": "completed" }
