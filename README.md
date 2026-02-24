@@ -375,3 +375,4 @@ All list endpoints return:
 | General API    | 100 req / min   |
 | Auth endpoints | 10 req / 15 min |
 | Booking create | 20 req / min    |# api-server
+# api-server
