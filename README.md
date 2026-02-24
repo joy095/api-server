@@ -376,3 +376,4 @@ All list endpoints return:
 | Auth endpoints | 10 req / 15 min |
 | Booking create | 20 req / min    |# api-server
 # api-server
+# api-server
