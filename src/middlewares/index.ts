@@ -1,5 +1,5 @@
 import { Context, Next } from "hono";
-import type { ZodSchema } from "zod";
+import { ZodError, type ZodSchema } from "zod";
 import { AppError } from "../lib/response";
 import { logger } from "../lib/logger";
 import { eq, and } from "drizzle-orm";
@@ -43,7 +43,14 @@ export const errorHandler = async (c: Context, next: Next) => {
       logger.error("Unknown error", { err });
     }
 
-    return c.json({ success: false, error: "Internal server error" }, 500);
+    return c.json(
+      {
+        success: false,
+        error: "Internal server error",
+        code: "INTERNAL_ERROR",
+      },
+      500,
+    );
   }
 };
 

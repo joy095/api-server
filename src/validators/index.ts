@@ -35,6 +35,11 @@ export const createClinicSchema = z.object({
 
 export const updateClinicSchema = createClinicSchema.partial();
 
+export const addClinicMemberSchema = z.object({
+  userId: z.string().uuid(),
+  role: z.enum(["doctor", "staff", "admin"]).default("staff"),
+});
+
 // ─── Patient Schemas ──────────────────────────────────────────────────────────
 
 export const createPatientSchema = z.object({

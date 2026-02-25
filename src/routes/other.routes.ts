@@ -19,13 +19,21 @@ import {
   updateBookingSchema,
   bookingQuerySchema,
   paginationSchema,
+  addClinicMemberSchema,
 } from "../validators";
 import { z } from "zod";
 
 // ── Clinics ────────────────────────────────────────────────────────────────────
 export const clinicRoutes = new Hono();
 
-// All clinic routes are org-scoped
+// Public clinic marketplace
+clinicRoutes.get(
+  "/marketplace",
+  validateQuery(paginationSchema),
+  clinicController.marketPlace,
+);
+
+// All remaining clinic routes are org-scoped
 clinicRoutes.use("*", requireAuth, requireOrg);
 
 clinicRoutes.get("/", validateQuery(paginationSchema), clinicController.list);
@@ -36,6 +44,13 @@ clinicRoutes.post(
   requireRole("owner", "admin"),
   validateBody(createClinicSchema),
   clinicController.create,
+);
+
+clinicRoutes.post(
+  "/:id/members",
+  requireRole("owner", "admin"),
+  validateBody(addClinicMemberSchema),
+  clinicController.addMember,
 );
 
 clinicRoutes.patch(

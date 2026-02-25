@@ -80,7 +80,9 @@ adminRoutes.get("/users/:id", async (c) => {
     })
     .from(member)
     .innerJoin(user, eq(member.userId, user.id))
-    .where(eq(member.userId, c.req.param("id")))
+    .where(
+      sql`member.user_id = ${c.req.param("id")} AND member.organization_id = ${orgId}`,
+    )
     .limit(1);
 
   if (!row) throw new AppError("User not found in this organisation", 404);
@@ -102,8 +104,7 @@ adminRoutes.patch(
       .update(member)
       .set({ role })
       .where(
-        eq(member.userId, c.req.param("id")),
-        // Only update within this org
+        sql`member.user_id = ${c.req.param("id")} AND member.organization_id = ${orgId}`,
       )
       .returning({ id: member.id, role: member.role });
 
