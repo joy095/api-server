@@ -76,10 +76,22 @@ export const csrfProtection = async (c: Context, next: Next) => {
 // Sets `c.get("user"): AuthUser` for downstream middleware.
 
 export const requireAuth = async (c: Context, next: Next) => {
+  // `better-auth` can validate sessions from either a bearer token or
+  // the default cookie (`better-auth.session_token`).  Previously we
+  // enforced the presence of an Authorization header which meant every
+  // request had to send a bearer token even though the README advertises
+  // cookie‑based sessions.  Clients that only sent the cookie were always
+  // rejected with a 401 before the library ever saw the request.
+
   const authHeader = c.req.header("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
+  const cookieHeader = c.req.header("Cookie") || "";
+
+  if (
+    !(authHeader && authHeader.startsWith("Bearer ")) &&
+    !cookieHeader.includes("better-auth.session_token")
+  ) {
     throw new AppError(
-      "Missing or invalid Authorization header",
+      "Missing authentication credentials",
       401,
       "UNAUTHORIZED",
     );
@@ -87,7 +99,10 @@ export const requireAuth = async (c: Context, next: Next) => {
 
   const auth = createAuthHandler(c.env);
 
-  // Use better-auth's built-in session validation from the raw request
+  // Use better-auth's built-in session validation from the raw request.
+  // passing the raw headers allows the library to look at both the
+  // Authorization header *and* the cookie, so we no longer need to do
+  // any manual parsing ourselves.
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
 
   if (!session?.user || !session?.session) {

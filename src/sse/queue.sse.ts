@@ -19,6 +19,8 @@ export interface QueueEvent {
   bookingId: string;
   doctorId: string;
   date: string;
+  /** Patient who owns this booking — used for patient-side event filtering */
+  patientId?: string;
   /** Current queue position (1-based) of this booking */
   position?: number;
   /** New booking status */
@@ -61,6 +63,7 @@ export function createSseStream(
   patientId?: string,
 ): ReadableStream {
   let sub: Subscriber;
+  let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
 
   const stream = new ReadableStream({
     start(controller) {
@@ -78,10 +81,16 @@ export function createSseStream(
         date,
         message: "Subscribed to booking queue",
       });
+
+      // Keep the connection alive through proxies/load-balancers
+      heartbeatTimer = startHeartbeat(controller);
     },
 
     cancel() {
-      // Client disconnected — clean up
+      // Client disconnected — clear heartbeat and clean up subscriber
+      if (heartbeatTimer !== undefined) {
+        clearInterval(heartbeatTimer);
+      }
       if (sub) {
         const key = channelKey(sub.doctorId, sub.date);
         subscribers.get(key)?.delete(sub);
@@ -109,9 +118,8 @@ export function publishQueueEvent(event: QueueEvent): void {
   for (const sub of subs) {
     // Patients only receive events for their own bookings
     const shouldReceive =
-      !sub.patientId || // staff (no patientId filter)
-      event.bookingId.startsWith(sub.patientId ?? ""); // loose match for demo
-    // In production, store `bookingId` on the subscriber for exact match.
+      !sub.patientId || // staff subscribers (no patientId filter set)
+      sub.patientId === event.patientId; // exact match on the booking's patient
 
     if (!shouldReceive) continue;
 

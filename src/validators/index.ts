@@ -101,6 +101,7 @@ export const updateBookingSchema = z.object({
     .enum(["pending", "confirmed", "cancelled", "completed", "no_show"])
     .optional(),
   cancelNote: z.string().optional(),
+  scheduledAt: z.string().datetime().optional(),
 });
 
 export const bookingQuerySchema = paginationSchema.extend({

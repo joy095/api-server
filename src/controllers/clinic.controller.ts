@@ -61,19 +61,19 @@ export const clinicController = {
     return paginated(c, rows, count, page, limit);
   },
 
-  // GET /clinics/:id
-  getById: async (c: Context) => {
-    const db = createDb(c.env);
+  // GET /clinics/:id // Not working with better auth
+  // getById: async (c: Context) => {
+  //   const db = createDb(c.env);
 
-    const [row] = await db
-      .select()
-      .from(clinic)
-      .where(eq(clinic.id, c.req.param("id")))
-      .limit(1);
+  //   const [row] = await db
+  //     .select()
+  //     .from(clinic)
+  //     .where(eq(clinic.id, c.req.param("id")))
+  //     .limit(1);
 
-    if (!row) throw new AppError("Clinic not found", 404);
-    return ok(c, row);
-  },
+  //   if (!row) throw new AppError("Clinic not found", 404);
+  //   return ok(c, row);
+  // },
 
   // POST /clinics
   create: async (c: Context) => {

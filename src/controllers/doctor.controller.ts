@@ -18,8 +18,7 @@ type AssignClinic = z.infer<typeof assignDoctorClinicSchema>;
 export const doctorController = {
   // GET /doctors
   list: async (c: Context) => {
-    const page = Number(c.req.query("page") ?? 1);
-    const limit = Number(c.req.query("limit") ?? 20);
+    const { page, limit } = c.get("validatedQuery") ?? { page: 1, limit: 20 };
     const offset = (page - 1) * limit;
 
     const db = createDb(c.env);
@@ -90,7 +89,7 @@ export const doctorController = {
     const doctorId = c.req.param("id");
     const body: AssignClinic = c.get("validatedBody");
 
-    await getDoctorOrThrow(doctorId);
+    await getDoctorOrThrow(doctorId, c.env);
 
     const db = createDb(c.env);
 
