@@ -4,8 +4,13 @@ import { z } from "zod";
 import { createDb } from "../db";
 import { user } from "../db/schema/auth-schema";
 import { member } from "../db/schema/auth-schema";
-import { requireAuth, requireOrg, requireRole, validateBody } from "../middlewares";
-import { ok, noContent, paginated, AppError } from "../lib/response";
+import {
+  requireAuth,
+  requireOrg,
+  requireRole,
+  validateBody,
+} from "../middlewares";
+import { ok, noContent, paginated, AppError, Errors } from "../lib/response";
 
 export const adminRoutes = new Hono();
 
@@ -85,7 +90,7 @@ adminRoutes.get("/users/:id", async (c) => {
     )
     .limit(1);
 
-  if (!row) throw new AppError("User not found in this organisation", 404);
+  if (!row) throw Errors.notFound("User in this organisation");
   return ok(c, row);
 });
 
@@ -108,16 +113,16 @@ adminRoutes.patch(
       )
       .returning({ id: member.id, role: member.role });
 
-    if (!updatedMember) throw new AppError("Member not found", 404);
+    if (!updatedMember) throw Errors.notFound("Member");
 
     // Also update the global user.doctorId if supplied explicitly,
     // or auto-clear it when the role is no longer "doctor"
     const doctorIdUpdate =
       doctorId !== undefined
-        ? doctorId ?? null           // explicit value (or explicit null) from caller
+        ? (doctorId ?? null) // explicit value (or explicit null) from caller
         : role !== "doctor"
-          ? null                     // role changed away from doctor — clear the link
-          : undefined;               // role is still doctor, no change requested
+          ? null // role changed away from doctor — clear the link
+          : undefined; // role is still doctor, no change requested
 
     if (doctorIdUpdate !== undefined) {
       await db
@@ -135,7 +140,7 @@ adminRoutes.patch(
 adminRoutes.delete("/users/:id", async (c) => {
   const currentUser = c.get("user") as any;
   if (currentUser.id === c.req.param("id")) {
-    throw new AppError("You cannot remove yourself from the organisation", 400);
+    throw Errors.badRequest("You cannot remove yourself from the organisation");
   }
 
   const db = createDb(c.env);
@@ -143,12 +148,10 @@ adminRoutes.delete("/users/:id", async (c) => {
 
   const [deleted] = await db
     .delete(member)
-    .where(
-      sql`user_id = ${c.req.param("id")} AND organization_id = ${orgId}`,
-    )
+    .where(sql`user_id = ${c.req.param("id")} AND organization_id = ${orgId}`)
     .returning({ id: member.id });
 
-  if (!deleted) throw new AppError("Member not found", 404);
+  if (!deleted) throw Errors.notFound("Member");
   return noContent(c);
 });
 

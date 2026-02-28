@@ -1,24 +1,33 @@
 import { Hono } from "hono";
 import createAuth from "./lib/auth";
 import { logger } from "./lib/logger";
+import { Errors, errorResponse } from "./lib/response";
 import { secureHeaders } from "hono/secure-headers";
 import type { Env } from "./types";
 import { cors } from "hono/cors";
-import { errorHandler, requestLogger, csrfProtection } from "./middlewares";
+import {
+  errorHandler,
+  requestLogger,
+  csrfProtection,
+  attachRequestId,
+} from "./middlewares";
 import { doctorRoutes } from "./routes/doctor.routes";
 import {
   clinicRoutes,
   patientRoutes,
   bookingRoutes,
 } from "./routes/other.routes";
-import { adminRoutes } from "./bookings/admin.routes";
+import { adminRoutes } from "./routes/admin.routes";
 import { sseRoutes } from "./routes/sse.routes";
+import { authTokenRoutes } from "./routes/auth.routes";
 const app = new Hono<{ Bindings: Env }>();
 
 let authInstance: ReturnType<typeof createAuth>;
 
 // ── Global middleware ──────────────────────────────────────────────────────────
-// Error handler should be registered early so it can catch downstream errors
+// 1. Request ID must be first — errorHandler reads it for correlation
+app.use("*", attachRequestId);
+// 2. Error handler wraps everything downstream
 app.use("*", errorHandler);
 app.use("*", requestLogger);
 app.use("*", secureHeaders());
@@ -37,9 +46,14 @@ app.use("*", async (c, next) => {
   })(c, next);
 });
 
-// Skip CSRF check on SSE routes (they're GET only)
+// Skip CSRF check on SSE routes (GET only) and token auth routes
 app.use("*", async (c, next) => {
-  if (c.req.path.startsWith("/api/v1/sse")) return next();
+  if (
+    c.req.path.startsWith("/api/v1/sse") ||
+    c.req.path.startsWith("/api/v1/auth")
+  ) {
+    return next();
+  }
   return csrfProtection(c, next);
 });
 
@@ -49,22 +63,22 @@ app.all("/api/auth/**", async (c) => {
   try {
     const auth = createAuth(c.env);
     const res = await auth.handler(c.req.raw);
-
-    // If the handler returned a Fetch Response, forward it directly.
     if (res) return res;
-
-    // Otherwise, return a JSON response as a fallback.
     return c.json({ success: true }, 200);
   } catch (err) {
-    // Ensure no exception here can crash the server — always handle it.
-    logger.error("Auth handler error", { err });
-    return c.json(
-      {
-        success: false,
-        error: "Authentication service error",
-        code: "AUTH_ERROR",
-      },
-      500,
+    const requestId: string | undefined = c.get("requestId");
+    logger.error("Better-auth handler error", {
+      err: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      path: c.req.path,
+      ...(requestId ? { requestId } : {}),
+    });
+    return errorResponse(
+      c,
+      Errors.internal("Authentication service error", {
+        hint: requestId ? `Reference ID: ${requestId}` : undefined,
+      }),
+      requestId,
     );
   }
 });
@@ -72,12 +86,20 @@ app.all("/api/auth/**", async (c) => {
 // ── API routes ─────────────────────────────────────────────────────────────────
 const api = new Hono<{ Bindings: Env }>().basePath("/api/v1");
 
+// Web session endpoint — used by browser clients only.
+// Mobile clients should use POST /api/v1/auth/token instead.
+
 api.route("/doctors", doctorRoutes);
 api.route("/clinics", clinicRoutes);
 api.route("/patients", patientRoutes);
 api.route("/bookings", bookingRoutes);
 api.route("/admin", adminRoutes);
 api.route("/sse", sseRoutes);
+// Mobile token-based auth endpoints:
+//   POST /api/v1/auth/token    — sign in → JWT
+//   POST /api/v1/auth/refresh  — refresh JWT
+//   GET  /api/v1/auth/me       — current user profile
+api.route("/auth", authTokenRoutes);
 
 // Health check — public, no auth
 api.get("/health", (c) =>

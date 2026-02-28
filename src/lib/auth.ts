@@ -3,16 +3,29 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import {
   admin as adminPlugin,
   bearer,
+  jwt,
+  openAPI,
   organization,
+  multiSession,
 } from "better-auth/plugins";
 import { createDb } from "../db";
 import type { Env } from "../types";
 import * as authSchema from "../db/schema/auth-schema";
 import * as appSchema from "../db/schema/schema";
-// Import from the shared permissions file — NOT inline
 import { ac, owner, admin, doctor, staff } from "./permissions";
 import { sendEmail } from "./sendEmail";
 
+/**
+ * Creates a better-auth instance scoped to the current request's environment.
+ *
+ * Plugins in use:
+ *   bearer()       — validates `Authorization: Bearer <token>` headers (session tokens)
+ *   jwt()          — issues signed JWTs; GET /api/auth/token returns one for the current session
+ *   openAPI()      — mounts Swagger UI at /api/auth/reference
+ *   organization() — org membership, roles, invitations, setActiveOrganization
+ *   multiSession() — allows one user to hold sessions in multiple orgs simultaneously
+ *   adminPlugin()  — user management (ban, impersonate, list users) for global admins
+ */
 const createAuthHandler = (env?: Env) => {
   const db = createDb(env);
 
@@ -27,8 +40,8 @@ const createAuthHandler = (env?: Env) => {
 
     rateLimit: {
       enabled: true,
-      window: 10, // time window in seconds
-      max: 100, // max requests in the window
+      window: 10,
+      max: 100,
     },
 
     emailAndPassword: {
@@ -55,18 +68,30 @@ const createAuthHandler = (env?: Env) => {
     },
 
     plugins: [
+      // Session-token bearer auth — mobile clients pass the session token as Bearer
       bearer(),
-
+      // JWT plugin — GET /api/auth/token returns a signed JWT for the current session
+      jwt(),
+      // Swagger docs at /api/auth/reference
+      openAPI(),
+      // Organisation management + RBAC
       organization({
-        allowUserToCreateOrganization: false,
-        // Correct: pass ac + role objects, not inline permission maps
+        allowUserToCreateOrganization: true,
         ac,
         roles: { owner, admin, doctor, staff },
+        // Sends invitation emails automatically
+        sendInvitationEmail: async ({ invitation, inviter, organization }) => {
+          await sendEmail(env!, {
+            to: invitation.email,
+            subject: `You've been invited to join ${organization.name}`,
+            text: `${inviter.user.name} invited you to join ${organization.name}.`,
+          });
+        },
       }),
-
-      adminPlugin({
-        defaultRole: "staff",
-      }),
+      // Multi-session: user can be active in multiple orgs; setActiveOrganization switches context
+      multiSession(),
+      // Global admin controls (ban users, impersonate, etc.)
+      adminPlugin(),
     ],
 
     trustedOrigins: (env?.ALLOWED_ORIGINS ?? "http://localhost:5173")
@@ -80,6 +105,7 @@ const createAuthHandler = (env?: Env) => {
 
     user: {
       additionalFields: {
+        // Links a user account to a doctor profile row
         doctorId: { type: "string", nullable: true },
       },
     },

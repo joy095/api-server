@@ -17,13 +17,12 @@ export const user = pgTable("user", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
-    .$onUpdate(() => new Date())
+    .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
   role: text("role"),
   banned: boolean("banned").default(false),
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires"),
-  // Link user to a doctor profile (set when role = "doctor")
   doctorId: text("doctor_id"),
 });
 
@@ -35,8 +34,7 @@ export const session = pgTable(
     token: text("token").notNull().unique(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
-      .defaultNow()
-      .$onUpdate(() => new Date())
+      .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
@@ -67,8 +65,7 @@ export const account = pgTable(
     password: text("password"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
-      .defaultNow()
-      .$onUpdate(() => new Date())
+      .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
   (table) => [index("account_userId_idx").on(table.userId)],
@@ -84,11 +81,19 @@ export const verification = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
-      .$onUpdate(() => new Date())
+      .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
+
+export const jwks = pgTable("jwks", {
+  id: text("id").primaryKey(),
+  publicKey: text("public_key").notNull(),
+  privateKey: text("private_key").notNull(),
+  createdAt: timestamp("created_at").notNull(),
+  expiresAt: timestamp("expires_at"),
+});
 
 export const organization = pgTable(
   "organization",
@@ -113,8 +118,7 @@ export const member = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    // Org-scoped role: "owner" | "admin" | "doctor" | "staff"
-    role: text("role").default("staff").notNull(),
+    role: text("role").default("member").notNull(),
     createdAt: timestamp("created_at").notNull(),
   },
   (table) => [
@@ -145,8 +149,6 @@ export const invitation = pgTable(
   ],
 );
 
-// ─── Relations ────────────────────────────────────────────────────────────────
-
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
@@ -155,11 +157,17 @@ export const userRelations = relations(user, ({ many }) => ({
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
-  user: one(user, { fields: [session.userId], references: [user.id] }),
+  user: one(user, {
+    fields: [session.userId],
+    references: [user.id],
+  }),
 }));
 
 export const accountRelations = relations(account, ({ one }) => ({
-  user: one(user, { fields: [account.userId], references: [user.id] }),
+  user: one(user, {
+    fields: [account.userId],
+    references: [user.id],
+  }),
 }));
 
 export const organizationRelations = relations(organization, ({ many }) => ({
@@ -172,7 +180,10 @@ export const memberRelations = relations(member, ({ one }) => ({
     fields: [member.organizationId],
     references: [organization.id],
   }),
-  user: one(user, { fields: [member.userId], references: [user.id] }),
+  user: one(user, {
+    fields: [member.userId],
+    references: [user.id],
+  }),
 }));
 
 export const invitationRelations = relations(invitation, ({ one }) => ({

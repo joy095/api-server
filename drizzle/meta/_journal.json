@@ -29,6 +29,13 @@
       "when": 1771854608135,
       "tag": "0003_normal_bullseye",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1772097813284,
+      "tag": "0004_kind_the_anarchist",
+      "breakpoints": true
     }
   ]
 }

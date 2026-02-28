@@ -2,11 +2,21 @@ export interface Env {
   DATABASE_URL: string;
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
+  /** Secret used to sign/verify mobile JWT tokens */
+  JWT_SECRET: string;
+  /** JWT expiry duration, e.g. "7d", "24h" (default: "7d") */
+  JWT_EXPIRES_IN?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   ALLOWED_ORIGINS: string;
   RESEND_API_KEY: string;
   EMAIL_FROM: string;
+  /**
+   * Directory where server logs are written (Node.js only).
+   * Defaults to ./logs relative to process.cwd().
+   * Set LOG_DIR=/var/log/myapp in production.
+   */
+  LOG_DIR?: string;
 }
 
 export interface BreakSlot {
