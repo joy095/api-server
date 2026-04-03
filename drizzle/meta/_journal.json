@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1772865366573,
+      "tag": "0000_grey_gorilla_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1773156795308,
+      "tag": "0001_public_owl",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1774800997939,
+      "tag": "0002_org-team-add",
+      "breakpoints": true
+    }
+  ]
+}

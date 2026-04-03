@@ -1,0 +1,23 @@
+{
+  "name": "api-server-2",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy --minify",
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings",
+    "auth:generate": "bunx @better-auth/cli generate --config ./src/lib/auth.ts",
+    "db:generate": "bunx drizzle-kit generate",
+    "db:migrate": "npx drizzle-kit migrate"
+  },
+  "dependencies": {
+    "@better-auth/drizzle-adapter": "^1.5.6",
+    "better-auth": "^1.5.6",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.12.9",
+    "postgres": "^3.4.8"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.10",
+    "wrangler": "^4.78.0"
+  }
+}
