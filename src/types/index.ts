@@ -6,4 +6,7 @@ export interface Env {
   ALLOWED_ORIGINS: string;
   EMAIL_FROM: string;
   MAIL_HMAC_SECRET: string;
+  NODE_ENV: string;
+  GOOGLE_CLIENT_ID: string;
+  GOOGLE_CLIENT_SECRET: string;
 }

@@ -9,7 +9,12 @@ import { csrf } from "hono/csrf";
 const app = new Hono<{ Bindings: Env }>();
 
 app.use("*", secureHeaders());
-app.use(logger());
+const isDev = (env: Env) => env.NODE_ENV === "development";
+
+app.use("*", (c, next) => {
+  if (isDev(c.env)) return logger()(c, next);
+  return next();
+});
 
 // 1. Define your origins once to keep things DRY
 const getOrigins = (env: Env) => {
@@ -42,7 +47,7 @@ app.use("*", async (c, next) => {
 
 app.all("/api/auth/**", async (c) => {
   try {
-    const auth = createAuth(c.env);
+    const auth = createAuth(c.env, c.executionCtx);
     const res = await auth.handler(c.req.raw);
     if (res) return res;
     return c.json({ success: true }, 200);
