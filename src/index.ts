@@ -45,26 +45,26 @@ app.use("*", async (c, next) => {
   return csrfMiddleware(c, next);
 });
 
-app.all("/api/auth/**", async (c) => {
-  try {
-    const auth = createAuth(c.env, c.executionCtx);
-    const res = await auth.handler(c.req.raw);
-    if (res) return res;
-    return c.json({ success: true }, 200);
-  } catch (err) {
-    const requestId = c.get("requestId") as string | undefined;
-    console.error("Better-auth handler error", {
-      err: err instanceof Error ? err.message : String(err),
-      stack: err instanceof Error ? err.stack : undefined,
-      path: c.req.path,
-      ...(requestId ? { requestId } : {}),
-    });
-    return c.json({ error: "Internal Server Error" }, 500);
-  }
-});
+// app.all("/api/auth/**", async (c) => {
+//   try {
+//     const auth = createAuth(c.env, c.executionCtx);
+//     const res = await auth.handler(c.req.raw);
+//     if (res) return res;
+//     return c.json({ success: true }, 200);
+//   } catch (err) {
+//     const requestId = c.get("requestId") as string | undefined;
+//     console.error("Better-auth handler error", {
+//       err: err instanceof Error ? err.message : String(err),
+//       stack: err instanceof Error ? err.stack : undefined,
+//       path: c.req.path,
+//       ...(requestId ? { requestId } : {}),
+//     });
+//     return c.json({ error: "Internal Server Error" }, 500);
+//   }
+// });
 
 app.get("/", (c) => {
-  return c.json({ status: "ok" }, 200);
+  return c.json({ status: "ok from backend server" }, 200);
 });
 
 export default app;

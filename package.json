@@ -7,7 +7,7 @@
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
     "auth:generate": "bunx @better-auth/cli generate --config ./src/lib/auth.ts",
     "db:generate": "bunx drizzle-kit generate",
-    "db:migrate": "npx drizzle-kit migrate"
+    "db:migrate": "bunx drizzle-kit migrate"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.5.6",
