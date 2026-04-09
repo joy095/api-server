@@ -1,10 +1,10 @@
 import { Hono } from "hono";
 import type { Env } from "./types";
-import createAuth from "./lib/auth";
 import { secureHeaders } from "hono/secure-headers";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { csrf } from "hono/csrf";
+import { verifyBetterAuthJWT } from "./middleware/auth";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -45,26 +45,41 @@ app.use("*", async (c, next) => {
   return csrfMiddleware(c, next);
 });
 
-// app.all("/api/auth/**", async (c) => {
-//   try {
-//     const auth = createAuth(c.env, c.executionCtx);
-//     const res = await auth.handler(c.req.raw);
-//     if (res) return res;
-//     return c.json({ success: true }, 200);
-//   } catch (err) {
-//     const requestId = c.get("requestId") as string | undefined;
-//     console.error("Better-auth handler error", {
-//       err: err instanceof Error ? err.message : String(err),
-//       stack: err instanceof Error ? err.stack : undefined,
-//       path: c.req.path,
-//       ...(requestId ? { requestId } : {}),
-//     });
-//     return c.json({ error: "Internal Server Error" }, 500);
-//   }
-// });
-
 app.get("/", (c) => {
-  return c.json({ status: "ok from backend server" }, 200);
+  return c.json(
+    {
+      success: true,
+      message: "Hono API Server",
+      version: "1.0.0",
+      timestamp: new Date().toISOString(),
+    },
+    200,
+  );
 });
 
-export default app;
+// Apply auth to all /api/users* routes
+app.use('/api/users*', verifyBetterAuthJWT)
+
+// Current user info
+app.get('/api/users/me', (c) => {
+  const user = c.get('user')
+  
+  return c.json({
+    success: true,
+    data: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      emailVerified: user.emailVerified,
+      createdAt: user.createdAt,
+      // Don't expose sensitive fields like banReason unless admin
+    }
+  })
+})
+
+export default {
+  port: 5000,
+  fetch: app.fetch,
+}
+
