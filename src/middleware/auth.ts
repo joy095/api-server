@@ -1,8 +1,7 @@
 // middleware/auth.ts
-import { MiddlewareHandler } from "hono";
+import { Context, MiddlewareHandler } from "hono";
 import { jwtVerify, createRemoteJWKSet, JWTPayload, errors } from "jose";
-import type { Context } from "hono";
-import { AUTH_SERVER } from "../const";
+
 
 // User type from your JWT payload
 export type User = {
@@ -38,9 +37,9 @@ declare module "hono" {
 // Cache JWKS at module level (survives hot reloads in dev)
 let jwksCache: ReturnType<typeof createRemoteJWKSet> | null = null;
 
-function getJWKS(authUrl: string) {
+function getJWKS(c: Context,authUrl: string) {
   if (!jwksCache) {
-    const jwksUrl = new URL(AUTH_SERVER + "/api/auth/jwks", authUrl).toString();
+    const jwksUrl = new URL(c.env.AUTH_SERVER + "/api/auth/jwks", authUrl).toString();
     console.log(`[JWKS] Initializing for: ${jwksUrl}`);
 
     jwksCache = createRemoteJWKSet(new URL(jwksUrl), {
@@ -53,9 +52,9 @@ function getJWKS(authUrl: string) {
 
 export const verifyBetterAuthJWT: MiddlewareHandler<{
   Variables: Variables;
-}> = async (c, next) => {
+}> = async (c: Context, next) => {
   const authHeader = c.req.header("authorization");
-  const authUrl = AUTH_SERVER;
+  const authUrl = c.env.AUTH_SERVER;
 
   console.log(
     `[Auth] ${c.req.method} ${c.req.path} - Auth present: ${!!authHeader}`,
@@ -76,14 +75,15 @@ export const verifyBetterAuthJWT: MiddlewareHandler<{
   const token = authHeader.slice(7); // Remove 'Bearer '
 
   try {
-    const JWKS = getJWKS(authUrl);
-    const issuer = AUTH_SERVER;
-    const audience = AUTH_SERVER;
+    const JWKS = getJWKS(c, authUrl);
+    const issuer = c.env.AUTH_SERVER;
+    const audience = c.env.AUTH_SERVER;
 
     const { payload } = await jwtVerify(token, JWKS, {
       issuer,
       audience,
       algorithms: ["EdDSA"], // Better Auth uses EdDSA by default
+      clockTolerance: 10,
     });
 
     // Check if user is banned
@@ -154,28 +154,4 @@ export const verifyBetterAuthJWT: MiddlewareHandler<{
       500,
     );
   }
-};
-
-// Optional: Role-based access control
-export const requireRole = (
-  ...allowedRoles: string[]
-): MiddlewareHandler<{
-  Variables: Variables;
-}> => {
-  return async (c, next) => {
-    const user = c.get("user");
-
-    if (!allowedRoles.includes(user.role)) {
-      return c.json(
-        {
-          success: false,
-          error: "Forbidden",
-          message: `Required role: ${allowedRoles.join(" or ")}. Your role: ${user.role}`,
-        },
-        403,
-      );
-    }
-
-    await next();
-  };
 };

@@ -1,33 +1,42 @@
 import { Hono } from "hono";
-import type { Env } from "./types";
 import { secureHeaders } from "hono/secure-headers";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { csrf } from "hono/csrf";
 import { verifyBetterAuthJWT } from "./middleware/auth";
+import uploadsRoute from "./routes/fileRoute";
 
-const app = new Hono<{ Bindings: Env }>();
+export type Bindings = {
+  R2_BUCKET: R2Bucket;
+  DATABASE_URL: string;
+  ALLOWED_ORIGINS: string;
+  NODE_ENV: string;
+  AUTH_SERVER: string;
+};
+
+const app = new Hono<{ Bindings: Bindings }>();
+
+/* ------------------ ENV HELPERS ------------------ */
+
+const isDev = (env: Bindings) => env.NODE_ENV === "development";
+
+const getOrigins = (env: Bindings) => {
+  return env.ALLOWED_ORIGINS
+    ? env.ALLOWED_ORIGINS.split(",").map((o) => o.trim())
+    : ["http://localhost:3000", "http://localhost:5173"];
+};
+
+/* ------------------ GLOBAL MIDDLEWARE ------------------ */
 
 app.use("*", secureHeaders());
-const isDev = (env: Env) => env.NODE_ENV === "development";
 
 app.use("*", (c, next) => {
   if (isDev(c.env)) return logger()(c, next);
   return next();
 });
 
-// 1. Define your origins once to keep things DRY
-const getOrigins = (env: Env) => {
-  return env?.ALLOWED_ORIGINS
-    ? env.ALLOWED_ORIGINS.split(",").map((o) => o.trim())
-    : ["http://localhost:3000", "http://localhost:5173"];
-};
-
-// 2. CORS Middleware
 app.use("*", async (c, next) => {
-  const origins = getOrigins(c.env);
   const corsMiddleware = cors({
-    origin: origins,
+    origin: getOrigins(c.env),
     credentials: true,
     allowHeaders: ["Content-Type", "Authorization", "x-signature"],
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
@@ -35,35 +44,32 @@ app.use("*", async (c, next) => {
   return corsMiddleware(c, next);
 });
 
-// 3. CSRF Middleware
-// We wrap it in a functional middleware so we can access c.env
-app.use("*", async (c, next) => {
-  const origins = getOrigins(c.env);
-  const csrfMiddleware = csrf({
-    origin: origins,
-  });
-  return csrfMiddleware(c, next);
-});
+/* Apply CSRF ONLY to API routes (not files) */
+// app.use("/api/*", async (c, next) => {
+//   const csrfMiddleware = csrf({
+//     origin: getOrigins(c.env),
+//   });
+//   return csrfMiddleware(c, next);
+// });
+
+/* ------------------ HEALTH ------------------ */
 
 app.get("/", (c) => {
-  return c.json(
-    {
-      success: true,
-      message: "Hono API Server",
-      version: "1.0.0",
-      timestamp: new Date().toISOString(),
-    },
-    200,
-  );
+  return c.json({
+    success: true,
+    message: "Hono API Server",
+    version: "1.0.0",
+    timestamp: new Date().toISOString(),
+  });
 });
 
-// Apply auth to all /api/users* routes
-app.use('/api/users*', verifyBetterAuthJWT)
+/* ------------------ AUTH ROUTES ------------------ */
 
-// Current user info
-app.get('/api/users/me', (c) => {
-  const user = c.get('user')
-  
+app.use("/api/users/*", verifyBetterAuthJWT);
+
+app.get("/api/users/me", (c) => {
+  const user = c.get("user");
+
   return c.json({
     success: true,
     data: {
@@ -73,13 +79,16 @@ app.get('/api/users/me', (c) => {
       role: user.role,
       emailVerified: user.emailVerified,
       createdAt: user.createdAt,
-      // Don't expose sensitive fields like banReason unless admin
-    }
-  })
-})
+    },
+  });
+});
+
+// protected — add verifyBetterAuthJWT before the route
+// app.use("/api/uploads/*", verifyBetterAuthJWT);
+app.route("/api/uploads", uploadsRoute);
+
+/* ------------------ EXPORT ------------------ */
 
 export default {
-  port: 5000,
   fetch: app.fetch,
-}
-
+};

@@ -1,9 +1,9 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import type { Env } from "../types";
 import * as authSchema from "./schema/auth-schema";
+import { Bindings } from "..";
 
-export const createDb = (env?: Env | string) => {
+export const createDb = (env?: Bindings | string) => {
   const databaseUrl = typeof env === "string" ? env : env?.DATABASE_URL;
 
   const client = postgres(databaseUrl, {
