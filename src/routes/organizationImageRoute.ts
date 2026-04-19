@@ -59,12 +59,12 @@ orgImage.post("/", requireSession, async (c) => {
     throw new HTTPException(404, { message: "Organization not found" });
   }
 
-  let key = org.logo
-    ? org.logo
-    : buildKey(
-        `org/${orgId}/logo`,
-        `${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${extFromMime(file.type)}`,
-      );
+  const oldKey = org.logo ?? null;
+
+  const key = buildKey(
+    `org/${orgId}/logo`,
+    `${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${extFromMime(file.type)}`,
+  );
 
   const result = await uploadToR2(
     c.env.R2_BUCKET,
@@ -73,6 +73,10 @@ orgImage.post("/", requireSession, async (c) => {
     ALLOWED_IMAGE_TYPES,
     MAX_IMAGE_BYTES,
   );
+
+  if (oldKey) {
+    await c.env.R2_BUCKET.delete(oldKey);
+  }
 
   await db
     .update(organization)
@@ -83,7 +87,7 @@ orgImage.post("/", requireSession, async (c) => {
     {
       success: true,
       data: result,
-      replaced: !!org.logo,
+      replaced: !!oldKey,
     },
     201,
   );
@@ -101,7 +105,6 @@ orgImage.delete("/", requireSession, async (c) => {
     throw new HTTPException(400, { message: "No active organization" });
   }
 
-  // Check membership and role
   const membership = await db.query.member.findFirst({
     where: and(
       eq(member.organizationId, orgId),

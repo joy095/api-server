@@ -30,26 +30,20 @@ userImage.post("/", verifyBetterAuthJWT, async (c) => {
     throw new HTTPException(400, { message: 'Field "file" is required' });
   }
 
-  // Fetch user from DB
   const existingUser = await db.query.user.findFirst({
     where: eq(user.id, authUser.id),
   });
 
-  // SECURITY CHECK
   if (!existingUser || existingUser.id !== authUser.id) {
     throw new HTTPException(403, { message: "Forbidden" });
   }
 
-  let key: string;
+  const oldKey = existingUser.image ?? null;
 
-  if (existingUser.image) {
-    key = existingUser.image; // replace
-  } else {
-    key = buildKey(
-      `users/${authUser.id}/images`,
-      `${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${extFromMime(file.type)}`,
-    );
-  }
+  const key = buildKey(
+    `users/${authUser.id}/images`,
+    `${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${extFromMime(file.type)}`,
+  );
 
   const result = await uploadToR2(
     c.env.R2_BUCKET,
@@ -59,19 +53,20 @@ userImage.post("/", verifyBetterAuthJWT, async (c) => {
     MAX_IMAGE_BYTES,
   );
 
-  // only update first time
-  if (!existingUser.image) {
-    await db
-      .update(user)
-      .set({ image: result.key })
-      .where(eq(user.id, authUser.id));
+  if (oldKey) {
+    await c.env.R2_BUCKET.delete(oldKey);
   }
+
+  await db
+    .update(user)
+    .set({ image: result.key })
+    .where(eq(user.id, authUser.id));
 
   return c.json(
     {
       success: true,
       data: result,
-      replaced: !!existingUser.image,
+      replaced: !!oldKey,
     },
     201,
   );
@@ -85,7 +80,6 @@ userImage.delete("/", verifyBetterAuthJWT, async (c) => {
     where: eq(user.id, authUser.id),
   });
 
-  // SECURITY CHECK
   if (!existingUser || existingUser.id !== authUser.id) {
     throw new HTTPException(403, { message: "Forbidden" });
   }
