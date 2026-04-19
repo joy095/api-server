@@ -3,8 +3,9 @@ import { secureHeaders } from "hono/secure-headers";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { verifyBetterAuthJWT } from "./middleware/authMiddleware";
-import uploadsRoute from "./routes/fileRoute";
+import getFile from "./routes/fileRoute";
 import userImage from "./routes/userImageRoute";
+import orgImage from "./routes/organizationImageRoute";
 
 export type Bindings = {
   R2_BUCKET: R2Bucket;
@@ -86,9 +87,11 @@ app.get("/api/users/me", (c) => {
 
 // protected — add verifyBetterAuthJWT before the route
 // app.use("/api/uploads/*", verifyBetterAuthJWT);
-app.route("/api/uploads", uploadsRoute);
+app.route("/api/uploads", getFile);
 
 app.route("/api/user/image", userImage);
+
+app.route("/api/org/image", orgImage);
 
 /* ------------------ EXPORT ------------------ */
 
