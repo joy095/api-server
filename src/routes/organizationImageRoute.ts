@@ -9,39 +9,24 @@ import {
 } from "../utils";
 import { MAX_IMAGE_BYTES } from "../const";
 import { createDb } from "../db";
-import { organization, member } from "../db/schema/auth-schema";
-import { eq, and } from "drizzle-orm";
+import { organization } from "../db/schema/auth-schema";
+import { eq } from "drizzle-orm";
 import { requireSession } from "../middleware/sessionMiddleware";
+import { requireOrgRole } from "../middleware/requireOrgRole";
 
 type AppEnv = { Bindings: Bindings };
 
 const orgImage = new Hono<AppEnv>();
 
-orgImage.post("/", requireSession, async (c) => {
+orgImage.post("/", requireSession, requireOrgRole("owner"), async (c) => {
   const db = createDb(c.env);
 
-  const authUser = c.get("sessionUser");
   const session = c.get("session");
 
   const orgId = session.activeOrganizationId;
 
   if (!orgId) {
     throw new HTTPException(400, { message: "No active organization" });
-  }
-
-  const membership = await db.query.member.findFirst({
-    where: and(
-      eq(member.organizationId, orgId),
-      eq(member.userId, authUser.id),
-    ),
-  });
-
-  if (!membership) {
-    throw new HTTPException(403, { message: "Not a member" });
-  }
-
-  if (membership.role !== "owner") {
-    throw new HTTPException(403, { message: "Only owner can update logo" });
   }
 
   const form = await c.req.formData();
@@ -93,31 +78,15 @@ orgImage.post("/", requireSession, async (c) => {
   );
 });
 
-orgImage.delete("/", requireSession, async (c) => {
+orgImage.delete("/", requireSession, requireOrgRole("owner"), async (c) => {
   const db = createDb(c.env);
 
-  const authUser = c.get("sessionUser");
   const session = c.get("session");
 
   const orgId = session.activeOrganizationId;
 
   if (!orgId) {
     throw new HTTPException(400, { message: "No active organization" });
-  }
-
-  const membership = await db.query.member.findFirst({
-    where: and(
-      eq(member.organizationId, orgId),
-      eq(member.userId, authUser.id),
-    ),
-  });
-
-  if (!membership) {
-    throw new HTTPException(403, { message: "Not a member" });
-  }
-
-  if (membership.role !== "owner") {
-    throw new HTTPException(403, { message: "Only owner can delete logo" });
   }
 
   const org = await db.query.organization.findFirst({

@@ -2,7 +2,6 @@
 import { Context, MiddlewareHandler } from "hono";
 import { jwtVerify, createRemoteJWKSet, JWTPayload, errors } from "jose";
 
-
 // User type from your JWT payload
 export type User = {
   id: string;
@@ -13,7 +12,7 @@ export type User = {
   image: string | null;
   createdAt: string;
   updatedAt: string;
-  role: "user" | "admin" | string;
+  role: "user" | "admin" | "owner" | string;
   banned: boolean;
   banReason: string | null;
   banExpires: string | null;
@@ -37,9 +36,12 @@ declare module "hono" {
 // Cache JWKS at module level (survives hot reloads in dev)
 let jwksCache: ReturnType<typeof createRemoteJWKSet> | null = null;
 
-function getJWKS(c: Context,authUrl: string) {
+function getJWKS(c: Context, authUrl: string) {
   if (!jwksCache) {
-    const jwksUrl = new URL(c.env.AUTH_SERVER + "/api/auth/jwks", authUrl).toString();
+    const jwksUrl = new URL(
+      c.env.AUTH_SERVER + "/api/auth/jwks",
+      authUrl,
+    ).toString();
     console.log(`[JWKS] Initializing for: ${jwksUrl}`);
 
     jwksCache = createRemoteJWKSet(new URL(jwksUrl), {
