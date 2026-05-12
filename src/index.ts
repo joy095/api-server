@@ -2,13 +2,13 @@ import { Hono } from "hono";
 import { secureHeaders } from "hono/secure-headers";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { verifyBetterAuthJWT } from "./middleware/authMiddleware";
 import getFileRouter from "./routes/fileRoute";
 import userImageRouter from "./routes/userImageRoute";
 import orgImageRouter from "./routes/organizationImageRoute";
-import bookingRouter from "./routes/bookingRouter";
-import orgRoute from "./routes/organizationRoute";
+import orgRoute from "./routes/org.route";
 import { DurableObject } from "cloudflare:workers";
+import doctorRoute from "./routes/doctor.route";
+import { errorHandler } from "./middleware/error-handler";
 
 export type Bindings = {
   R2_BUCKET: R2Bucket;
@@ -146,6 +146,8 @@ app.use("*", async (c, next) => {
 //   return csrfMiddleware(c, next);
 // });
 
+app.onError(errorHandler);
+
 /* ------------------ HEALTH ------------------ */
 
 app.get("/", (c) => {
@@ -165,11 +167,11 @@ app.route("/api/uploads", getFileRouter);
 
 app.route("/api/user/image", userImageRouter);
 
-app.route("/api/org/image", orgImageRouter);
-
-app.route("/api/booking", bookingRouter);
+// app.route("/api/org/image", orgImageRouter);
 
 app.route("/api/org", orgRoute);
+
+app.route("/api/doctor", doctorRoute);
 
 /* ------------------ EXPORT ------------------ */
 

@@ -1,4 +1,5 @@
 import { HTTPException } from "hono/http-exception";
+import { badRequest } from "./errors";
 
 export function buildKey(folder: string, fileName: string): string {
   const safe = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -73,10 +74,18 @@ export function extFromMime(mime: string): string {
   return map[mime] ?? "bin";
 }
 
-
 export const ALLOWED_IMAGE_TYPES = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
   "image/gif",
 ]);
+
+export function ensureNotEmptyPatch(
+  patch: Record<string, unknown>,
+  message = "No fields provided for update",
+) {
+  if (Object.keys(patch).length === 0) {
+    throw badRequest(message);
+  }
+}

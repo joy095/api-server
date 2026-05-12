@@ -10,8 +10,11 @@ import {
   unique,
   uuid,
   varchar,
+  decimal,
+  boolean,
 } from "drizzle-orm/pg-core";
-import { user } from "./auth-schema";
+import { organization, user } from "./auth-schema";
+import { doctor } from "./doctor-schema";
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
@@ -23,72 +26,142 @@ export const appointmentStatusEnum = pgEnum("appointment_status", [
   "no_show",
 ]);
 
-// ─── Doctor ───────────────────────────────────────────────────────────────────
+export const daySegmentEnum = pgEnum("day_segment", [
+  "morning",
+  "afternoon",
+  "evening",
+  "night",
+]);
 
-export const doctor = pgTable(
-  "doctor",
+export const daysOfWeekEnum = pgEnum("day_of_week", [
+  "mon",
+  "tue",
+  "wed",
+  "thu",
+  "fri",
+  "sat",
+  "sun",
+]);
+
+export const availabilityPatternEnum = pgEnum("availability_pattern", [
+  "daily", // Applies every day
+  "weekly", // Applies on specific days of week (mon, tue, ...)
+  "monthly", // Applies on specific day-of-month (1–31)
+]);
+
+// ─── Location ─────────────────────────────────────────────────────────────────
+
+export const location = pgTable("location", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: text("organization_id").references(() => organization.id, {
+    onDelete: "cascade",
+  }),
+  address: text("address").notNull(),
+  city: varchar("city", { length: 100 }).notNull(),
+  state: varchar("state", { length: 50 }).notNull(),
+  lat: decimal("lat", { precision: 9, scale: 6 }),
+  lng: decimal("lng", { precision: 10, scale: 6 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+
+// ─── Doctor Availability Template ─────────────────────────────────────────────
+// Replaces doctorWeeklySchedule. Defines recurring availability patterns.
+//
+// Pattern rules (enforce in app logic):
+//   daily   → dayOfWeek = null, dayOfMonth = null
+//   weekly  → dayOfWeek = "mon"|"tue"|..., dayOfMonth = null
+//   monthly → dayOfWeek = null, dayOfMonth = 1–31
+
+export const doctorAvailabilityTemplate = pgTable(
+  "doctor_availability_template",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    name: text("name").notNull(),
-    image: text("image"),
-    description: text("description").notNull(),
-    certificateId: uuid("certificate_id").array().notNull(),
-    experienceId: uuid("experience_id")
+    doctorId: uuid("doctor_id")
       .notNull()
-      .references(() => doctorExperience.id, { onDelete: "cascade" }),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    specialized: varchar({ length: 50 }),
-    slotDurationMins: integer("slot_duration_mins").notNull().default(15),
+      .references(() => doctor.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "cascade",
+    }),
+
+    pattern: availabilityPatternEnum("pattern").notNull(),
+    dayOfWeek: daysOfWeekEnum("day_of_week"),
+    dayOfMonth: integer("day_of_month"),
+
+    // Added Segment and Specific Times
+    segment: daySegmentEnum("segment").notNull(),
+    startTime: varchar("start_time", { length: 5 }).notNull(), // e.g., "08:00"
+    endTime: varchar("end_time", { length: 5 }), // e.g., "10:00"
+
+    maxCapacity: integer("max_capacity"),
+    isActive: boolean("is_active").default(true).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  (t) => [index("doctor_name_idx").on(t.name)],
+  (t) => [
+    // Updated unique constraint: A doctor can now have multiple shifts in the same segment
+    // as long as the start times are different.
+    unique("template_uniq").on(
+      t.doctorId,
+      t.pattern,
+      t.dayOfWeek,
+      t.dayOfMonth,
+      t.segment,
+      t.startTime,
+    ),
+  ],
 );
 
-// ─── Doctor Clinic Counter ────────────────────────────────────────────────────
-// One row per doctor per day.
-// lastNumber   = highest booking number issued (monotonically incremented)
-// currentNumber = the booking number the doctor is currently serving
-//                 (drives the real-time queue display)
+// ─── Doctor Availability (The Resolved Daily Instance) ─────────────────────────
+// Created when: 1. A booking occurs for a template day OR 2. Manual override.
+// References the template that generated it (nullable for manual overrides).
 
-export const doctorClinic = pgTable(
-  "doctor_clinic",
+export const doctorAvailability = pgTable(
+  "doctor_availability",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     doctorId: uuid("doctor_id")
       .notNull()
       .references(() => doctor.id, { onDelete: "cascade" }),
-    bookingDate: date("booking_date").notNull(),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "cascade",
+    }),
+    templateId: uuid("template_id").references(
+      () => doctorAvailabilityTemplate.id,
+      { onDelete: "set null" },
+    ),
+
+    date: date("date").notNull(),
+    segment: daySegmentEnum("segment").notNull(),
+
+    // Carry over times for the specific instance
+    startTime: varchar("start_time", { length: 5 }).notNull(),
+    endTime: varchar("end_time", { length: 5 }),
+
     lastNumber: integer("last_number").notNull().default(0),
-    // ← NEW: which token the doctor is currently serving
     currentNumber: integer("current_number").notNull().default(0),
+    isCancelled: boolean("is_cancelled").default(false),
+
+    maxCapacity: integer("max_capacity"),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
   },
   (t) => [
-    unique("doctor_clinic_doctor_date_uniq").on(t.doctorId, t.bookingDate),
-    index("doctor_clinic_date_idx").on(t.bookingDate),
+    // Unique constraint now includes startTime to allow multiple shifts per day/segment
+    unique("doctor_avail_date_shift_uniq").on(t.doctorId, t.date, t.startTime),
+    index("avail_doctor_date_idx").on(t.doctorId, t.date),
   ],
 );
-
-export const doctorExperience = pgTable("doctor_experience", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  organization: varchar({ length: 255 }).notNull(),
-  description: text(),
-  startDate: date("start_date").notNull(),
-  endDate: date("end_date").notNull(),
-});
-
-export const certificate = pgTable("certificate", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: varchar({ length: 100 }).notNull(),
-  description: text(),
-  issuedAt: date("issued_at").notNull(),
-  expiresAt: date("expires_at"),
-});
 
 // ─── Appointment ──────────────────────────────────────────────────────────────
 
@@ -98,20 +171,26 @@ export const appointment = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     doctorId: uuid("doctor_id")
       .notNull()
-      .references(() => doctor.id, { onDelete: "cascade" }),
+      .references(() => doctor.id, { onDelete: "restrict" }),
     patientId: text("patient_id")
       .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    numberOfPatients: integer("no_of_patient").notNull(),
+      .references(() => user.id, { onDelete: "restrict" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "restrict" }),
+    availabilityId: uuid("availability_id")
+      .notNull()
+      .references(() => doctorAvailability.id, { onDelete: "restrict" }),
     bookingNumber: integer("booking_number").notNull(),
     bookingDate: date("booking_date").notNull(),
-    status: appointmentStatusEnum("status").notNull().default("waiting"),
     appointmentDate: timestamp("appointment_date").notNull(),
+    status: appointmentStatusEnum("status").notNull().default("waiting"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
+    deletedAt: timestamp("deleted_at"),
   },
   (t) => [
     unique("appointment_doctor_date_number_uniq").on(
@@ -119,6 +198,7 @@ export const appointment = pgTable(
       t.bookingDate,
       t.bookingNumber,
     ),
+    index("appointment_patient_idx").on(t.patientId),
     index("appointment_doctor_date_idx").on(t.doctorId, t.bookingDate),
     index("appointment_status_idx").on(t.status),
   ],
@@ -126,12 +206,43 @@ export const appointment = pgTable(
 
 // ─── Relations ────────────────────────────────────────────────────────────────
 
-export const doctorRelations = relations(doctor, ({ many }) => ({
-  appointments: many(appointment),
-  clinicCounters: many(doctorClinic),
-  experiences: many(doctorExperience),
-  certificates: many(certificate),
+export const locationRelations = relations(location, ({ one, many }) => ({
+  organization: one(organization, {
+    fields: [location.organizationId],
+    references: [organization.id],
+  }),
+  doctors: many(doctor),
 }));
+
+export const doctorAvailabilityTemplateRelations = relations(
+  doctorAvailabilityTemplate,
+  ({ one, many }) => ({
+    doctor: one(doctor, {
+      fields: [doctorAvailabilityTemplate.doctorId],
+      references: [doctor.id],
+    }),
+    organization: one(organization, {
+      fields: [doctorAvailabilityTemplate.organizationId],
+      references: [organization.id],
+    }),
+    availabilities: many(doctorAvailability),
+  }),
+);
+
+export const doctorAvailabilityRelations = relations(
+  doctorAvailability,
+  ({ one, many }) => ({
+    doctor: one(doctor, {
+      fields: [doctorAvailability.doctorId],
+      references: [doctor.id],
+    }),
+    template: one(doctorAvailabilityTemplate, {
+      fields: [doctorAvailability.templateId],
+      references: [doctorAvailabilityTemplate.id],
+    }),
+    appointments: many(appointment),
+  }),
+);
 
 export const appointmentRelations = relations(appointment, ({ one }) => ({
   doctor: one(doctor, {
@@ -142,11 +253,8 @@ export const appointmentRelations = relations(appointment, ({ one }) => ({
     fields: [appointment.patientId],
     references: [user.id],
   }),
-}));
-
-export const doctorClinicRelations = relations(doctorClinic, ({ one }) => ({
-  doctor: one(doctor, {
-    fields: [doctorClinic.doctorId],
-    references: [doctor.id],
+  availability: one(doctorAvailability, {
+    fields: [appointment.availabilityId],
+    references: [doctorAvailability.id],
   }),
 }));
