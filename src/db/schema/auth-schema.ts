@@ -105,7 +105,7 @@ export const organization = pgTable(
     createdAt: timestamp("created_at").notNull(),
     metadata: text("metadata"),
   },
-  (table) => [uniqueIndex("organization_slug_uidx").on(table.slug)],
+  (table) => [uniqueIndex("organization_slug_idx").on(table.slug)],
 );
 
 export const team = pgTable(

@@ -5,22 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1777984007042,
-      "tag": "0000_crazy_maggott",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1778066355735,
-      "tag": "0001_chunky_pride",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1778570345617,
-      "tag": "0002_ambitious_stephen_strange",
+      "when": 1778600830069,
+      "tag": "0000_silky_blazing_skull",
       "breakpoints": true
     }
   ]

@@ -12,14 +12,14 @@
   },
   "dependencies": {
     "@hono/standard-validator": "^0.2.2",
-    "drizzle-orm": "^0.45.2",
-    "hono": "^4.12.14",
+    "drizzle-orm": "0.44.7",
+    "hono": "^4.12.18",
     "jose": "^6.2.3",
     "postgres": "^3.4.9",
-    "valibot": "^1.3.1"
+    "valibot": "^1.4.0"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.31.10",
-    "wrangler": "^4.83.0"
+    "drizzle-kit": "0.30.6",
+    "wrangler": "^4.90.1"
   }
 }

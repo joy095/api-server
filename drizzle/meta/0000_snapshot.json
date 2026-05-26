@@ -1,5 +1,5 @@
 {
-  "id": "6db766dd-7e4f-4d95-ad9c-386550157ac9",
+  "id": "c5ae5f80-1247-4d60-a4b2-275d358df29c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -440,8 +440,8 @@
         }
       },
       "indexes": {
-        "organization_slug_uidx": {
-          "name": "organization_slug_uidx",
+        "organization_slug_idx": {
+          "name": "organization_slug_idx",
           "columns": [
             {
               "expression": "slug",
@@ -934,9 +934,15 @@
         },
         "name": {
           "name": "name",
-          "type": "varchar(255)",
+          "type": "varchar(100)",
           "primaryKey": false,
           "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "image": {
           "name": "image",
@@ -957,7 +963,23 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "certificate_doctor_id_idx": {
+          "name": "certificate_doctor_id_idx",
+          "columns": [
+            {
+              "expression": "doctor_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "certificate_doctor_id_doctor_id_fk": {
           "name": "certificate_doctor_id_doctor_id_fk",
@@ -1012,8 +1034,7 @@
           "name": "slot_duration_mins",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
-          "default": 15
+          "notNull": false
         },
         "is_active": {
           "name": "is_active",
@@ -1022,11 +1043,17 @@
           "notNull": true,
           "default": true
         },
+        "slug": {
+          "name": "slug",
+          "type": "varchar(80)",
+          "primaryKey": false,
+          "notNull": true
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "default": "now()"
         },
         "updated_at": {
@@ -1043,7 +1070,69 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "doctor_slug_unique_active": {
+          "name": "doctor_slug_unique_active",
+          "columns": [
+            {
+              "expression": "slug",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"doctor\".\"deleted_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "doctor_specialized_idx": {
+          "name": "doctor_specialized_idx",
+          "columns": [
+            {
+              "expression": "specialized",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "doctor_user_id_idx": {
+          "name": "doctor_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "doctor_active_idx": {
+          "name": "doctor_active_idx",
+          "columns": [
+            {
+              "expression": "is_active",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "doctor_user_id_user_id_fk": {
           "name": "doctor_user_id_user_id_fk",
@@ -1056,6 +1145,64 @@
             "id"
           ],
           "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.doctor_education": {
+      "name": "doctor_education",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "doctor_id": {
+          "name": "doctor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "degree": {
+          "name": "degree",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "university": {
+          "name": "university",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "graduation_year": {
+          "name": "graduation_year",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "doctor_education_doctor_id_doctor_id_fk": {
+          "name": "doctor_education_doctor_id_doctor_id_fk",
+          "tableFrom": "doctor_education",
+          "tableTo": "doctor",
+          "columnsFrom": [
+            "doctor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -1113,7 +1260,23 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "experience_doctor_id_idx": {
+          "name": "experience_doctor_id_idx",
+          "columns": [
+            {
+              "expression": "doctor_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "doctor_experience_doctor_id_doctor_id_fk": {
           "name": "doctor_experience_doctor_id_doctor_id_fk",
@@ -1158,12 +1321,17 @@
           "primaryKey": false,
           "notNull": true
         },
-        "no_of_patient": {
-          "name": "no_of_patient",
-          "type": "integer",
+        "organization_id": {
+          "name": "organization_id",
+          "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": 1
+          "notNull": true
+        },
+        "availability_id": {
+          "name": "availability_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
         },
         "booking_number": {
           "name": "booking_number",
@@ -1177,6 +1345,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "appointment_date": {
+          "name": "appointment_date",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
         "status": {
           "name": "status",
           "type": "appointment_status",
@@ -1184,12 +1358,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'waiting'"
-        },
-        "appointment_date": {
-          "name": "appointment_date",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
         },
         "created_at": {
           "name": "created_at",
@@ -1248,6 +1416,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "appointment_status_idx": {
+          "name": "appointment_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -1276,6 +1459,32 @@
           ],
           "onDelete": "restrict",
           "onUpdate": "no action"
+        },
+        "appointment_organization_id_organization_id_fk": {
+          "name": "appointment_organization_id_organization_id_fk",
+          "tableFrom": "appointment",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "appointment_availability_id_doctor_availability_id_fk": {
+          "name": "appointment_availability_id_doctor_availability_id_fk",
+          "tableFrom": "appointment",
+          "tableTo": "doctor_availability",
+          "columnsFrom": [
+            "availability_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1294,8 +1503,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.doctor_clinic": {
-      "name": "doctor_clinic",
+    "public.doctor_availability": {
+      "name": "doctor_availability",
       "schema": "",
       "columns": {
         "id": {
@@ -1311,11 +1520,42 @@
           "primaryKey": false,
           "notNull": true
         },
-        "booking_date": {
-          "name": "booking_date",
+        "organization_id": {
+          "name": "organization_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "template_id": {
+          "name": "template_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "date": {
+          "name": "date",
           "type": "date",
           "primaryKey": false,
           "notNull": true
+        },
+        "segment": {
+          "name": "segment",
+          "type": "day_segment",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "start_time": {
+          "name": "start_time",
+          "type": "varchar(5)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "end_time": {
+          "name": "end_time",
+          "type": "varchar(5)",
+          "primaryKey": false,
+          "notNull": false
         },
         "last_number": {
           "name": "last_number",
@@ -1330,14 +1570,47 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "is_cancelled": {
+          "name": "is_cancelled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "max_capacity": {
+          "name": "max_capacity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {
-        "doctor_clinic_date_idx": {
-          "name": "doctor_clinic_date_idx",
+        "avail_doctor_date_idx": {
+          "name": "avail_doctor_date_idx",
           "columns": [
             {
-              "expression": "booking_date",
+              "expression": "doctor_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "date",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1350,12 +1623,173 @@
         }
       },
       "foreignKeys": {
-        "doctor_clinic_doctor_id_doctor_id_fk": {
-          "name": "doctor_clinic_doctor_id_doctor_id_fk",
-          "tableFrom": "doctor_clinic",
+        "doctor_availability_doctor_id_doctor_id_fk": {
+          "name": "doctor_availability_doctor_id_doctor_id_fk",
+          "tableFrom": "doctor_availability",
           "tableTo": "doctor",
           "columnsFrom": [
             "doctor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "doctor_availability_organization_id_organization_id_fk": {
+          "name": "doctor_availability_organization_id_organization_id_fk",
+          "tableFrom": "doctor_availability",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "doctor_availability_template_id_doctor_availability_template_id_fk": {
+          "name": "doctor_availability_template_id_doctor_availability_template_id_fk",
+          "tableFrom": "doctor_availability",
+          "tableTo": "doctor_availability_template",
+          "columnsFrom": [
+            "template_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "doctor_avail_date_shift_uniq": {
+          "name": "doctor_avail_date_shift_uniq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "doctor_id",
+            "date",
+            "start_time"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.doctor_availability_template": {
+      "name": "doctor_availability_template",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "doctor_id": {
+          "name": "doctor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pattern": {
+          "name": "pattern",
+          "type": "availability_pattern",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "day_of_week": {
+          "name": "day_of_week",
+          "type": "day_of_week",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "day_of_month": {
+          "name": "day_of_month",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "segment": {
+          "name": "segment",
+          "type": "day_segment",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "start_time": {
+          "name": "start_time",
+          "type": "varchar(5)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "end_time": {
+          "name": "end_time",
+          "type": "varchar(5)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "max_capacity": {
+          "name": "max_capacity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "doctor_availability_template_doctor_id_doctor_id_fk": {
+          "name": "doctor_availability_template_doctor_id_doctor_id_fk",
+          "tableFrom": "doctor_availability_template",
+          "tableTo": "doctor",
+          "columnsFrom": [
+            "doctor_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "doctor_availability_template_organization_id_organization_id_fk": {
+          "name": "doctor_availability_template_organization_id_organization_id_fk",
+          "tableFrom": "doctor_availability_template",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "organization_id"
           ],
           "columnsTo": [
             "id"
@@ -1366,15 +1800,103 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "doctor_clinic_doctor_date_uniq": {
-          "name": "doctor_clinic_doctor_date_uniq",
+        "template_uniq": {
+          "name": "template_uniq",
           "nullsNotDistinct": false,
           "columns": [
             "doctor_id",
-            "booking_date"
+            "pattern",
+            "day_of_week",
+            "day_of_month",
+            "segment",
+            "start_time"
           ]
         }
       },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.location": {
+      "name": "location",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "city": {
+          "name": "city",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lat": {
+          "name": "lat",
+          "type": "numeric(9, 6)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lng": {
+          "name": "lng",
+          "type": "numeric(10, 6)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "location_organization_id_organization_id_fk": {
+          "name": "location_organization_id_organization_id_fk",
+          "tableFrom": "location",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -1390,6 +1912,38 @@
         "completed",
         "cancelled",
         "no_show"
+      ]
+    },
+    "public.availability_pattern": {
+      "name": "availability_pattern",
+      "schema": "public",
+      "values": [
+        "daily",
+        "weekly",
+        "monthly"
+      ]
+    },
+    "public.day_segment": {
+      "name": "day_segment",
+      "schema": "public",
+      "values": [
+        "morning",
+        "afternoon",
+        "evening",
+        "night"
+      ]
+    },
+    "public.day_of_week": {
+      "name": "day_of_week",
+      "schema": "public",
+      "values": [
+        "mon",
+        "tue",
+        "wed",
+        "thu",
+        "fri",
+        "sat",
+        "sun"
       ]
     }
   },
